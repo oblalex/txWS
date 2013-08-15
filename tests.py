@@ -4,6 +4,7 @@ from txws import (is_hybi00, complete_hybi00, make_hybi00_frame,
                   parse_hybi00_frames, http_headers, make_accept, mask, CLOSE,
                   NORMAL, PING, PONG, parse_hybi07_frames)
 
+
 class TestHTTPHeaders(unittest.TestCase):
 
     def test_single_header(self):
@@ -32,6 +33,7 @@ class TestHTTPHeaders(unittest.TestCase):
         headers = http_headers(raw)
         self.assertEqual(headers["Origin"], "http://example.com:8080")
 
+
 class TestKeys(unittest.TestCase):
 
     def test_make_accept_rfc(self):
@@ -52,6 +54,7 @@ class TestKeys(unittest.TestCase):
         key = "x3JJHMbDL1EzLkh9GBhXDw=="
 
         self.assertEqual(make_accept(key), "HSmrc0sMlYUkAGmm5OPpG2HaGWk=")
+
 
 class TestHyBi00(unittest.TestCase):
 
@@ -150,7 +153,9 @@ class TestHyBi00(unittest.TestCase):
             self.assertEqual(frames[0], (NORMAL, frame))
             self.assertEqual(buf, "")
 
+
 class TestHyBi07Helpers(unittest.TestCase):
+
     """
     HyBi-07 is best understood as a large family of helper functions which
     work together, somewhat dysfunctionally, to produce a mediocre
