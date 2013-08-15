@@ -22,20 +22,36 @@ class BarResource(WebSocketResource):
         request.channel.write("BAR: %s" % request.data)
 
 
-class FooResource(WebSocketResource):
+class BazResource(WebSocketResource):
 
     def process(self, request):
-        request.channel.write("FOO: %s" % request.data)
+        request.channel.write("BAZ: %s" % request.data)
+
+
+class QuxResource(WebSocketResource):
+
+    def process(self, request):
+        request.channel.write("QUX: %s" % request.data)
 
 
 def main():
+    """
+    Routing:
+        ws://127.0.0.1:5600/bar     -> BarResource
+        ws://127.0.0.1:5600/foo/baz -> BazResource
+        ws://127.0.0.1:5600/foo/qux -> QuxResource
+    """
     log.startLogging(stdout)
 
     root = WebSocketResource()
     root.putChild("bar", BarResource())
-    root.putChild("foo", FooResource())
-    reactor.listenTCP(5600, WebSocketFactory(root))
 
+    foo = WebSocketResource()
+    root.putChild("foo", foo)
+    foo.putChild("baz", BazResource())
+    foo.putChild("qux", QuxResource())
+
+    reactor.listenTCP(5600, WebSocketFactory(root))
     reactor.run()
 
 
