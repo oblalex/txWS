@@ -1,23 +1,43 @@
-from twisted.python import log
 from sys import stdout
-log.startLogging(stdout)
 
-from twisted.internet.protocol import Protocol, Factory
-
-
-class EchoProtocol(Protocol):
-
-    def dataReceived(self, data):
-        self.transport.write(data)
-
-
-class EchoFactory(Factory):
-    protocol = EchoProtocol
-
-from txws import WebSocketFactory
+#===============================================================================
+# Import Twisted
+#===============================================================================
 from twisted.application.strports import listen
-
-port = listen("tcp:5600", WebSocketFactory(EchoFactory()))
-
 from twisted.internet import reactor
-reactor.run()
+from twisted.internet.protocol import Protocol, Factory
+from twisted.python import log
+from twisted.web.resource import Resource
+from twisted.web.server import Site
+from txws import WebSocketFactory, WebSocketResource
+
+#===============================================================================
+# Business Logic
+#===============================================================================
+
+
+class BarResource(WebSocketResource):
+
+    def process(self, request):
+        request.channel.write("BAR: %s" % request.data)
+
+
+class FooResource(WebSocketResource):
+
+    def process(self, request):
+        request.channel.write("FOO: %s" % request.data)
+
+
+def main():
+    log.startLogging(stdout)
+
+    root = WebSocketResource()
+    root.putChild("bar", BarResource())
+    root.putChild("foo", FooResource())
+    reactor.listenTCP(5600, WebSocketFactory(root))
+
+    reactor.run()
+
+
+if __name__ == "__main__":
+    main()

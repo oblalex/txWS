@@ -31,7 +31,7 @@ from string import digits
 from struct import pack, unpack
 
 from twisted.internet.interfaces import ISSLTransport
-from twisted.protocols.policies import ProtocolWrapper, WrappingFactory
+from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.python import log
 from twisted.web.http import datetimeToString
 
@@ -327,7 +327,49 @@ def parse_hybi07_frames(buf):
     return frames, buf[start:]
 
 
-class WebSocketProtocol(ProtocolWrapper):
+class WebSocketRequest:
+
+    def __init__(self, channel, location, data):
+        self.channel = channel
+        self.location = location
+        self.data = data
+
+    def __repr__(self):
+        return "\"%s\" from %s by \"%s\"" % (
+            self.data,
+            self.channel.transport.getPeer(),
+            self.location)
+
+
+class WebSocketResource:
+
+    def __init__(self):
+        self.children = {}
+
+    @property
+    def is_leaf(self):
+        return True if not self.children else False
+
+    def putChild(self, name, resource):
+        self.children[name] = resource
+
+    def get_child_for_path(self, path):
+        if path:
+            prepath = path[:1][0]
+            if prepath in self.children:
+                return self.children[prepath].get_child_for_path(path[1:])
+        elif self.is_leaf:
+            return self
+        return None
+
+    def process(self, request):
+        """
+        Reimplement in subclass.
+        """
+        pass
+
+
+class WebSocketProtocol(Protocol):
 
     """
     Protocol which wraps another protocol to provide a WebSockets transport
@@ -343,7 +385,6 @@ class WebSocketProtocol(ProtocolWrapper):
     flavor = None
 
     def __init__(self, *args, **kwargs):
-        ProtocolWrapper.__init__(self, *args, **kwargs)
         self.pending_frames = []
 
     def isSecure(self):
@@ -424,7 +465,8 @@ class WebSocketProtocol(ProtocolWrapper):
                 if self.codec:
                     data = decoders[self.codec](data)
                 # Pass the frame to the underlying protocol.
-                ProtocolWrapper.dataReceived(self, data)
+                request = WebSocketRequest(self, self.location, data)
+                self.factory.route(request)
             elif opcode == CLOSE:
                 # The other side wants us to close. I wonder why?
                 reason, text = data
@@ -614,7 +656,7 @@ class WebSocketProtocol(ProtocolWrapper):
         self.loseConnection()
 
 
-class WebSocketFactory(WrappingFactory):
+class WebSocketFactory(ClientFactory):
 
     """
     Factory which wraps another factory to provide WebSockets transports for
@@ -622,3 +664,14 @@ class WebSocketFactory(WrappingFactory):
     """
 
     protocol = WebSocketProtocol
+
+    def __init__(self, resource=None):
+        self.resource = resource
+
+    def route(self, request):
+        resource = self.resource.get_child_for_path(
+            request.location.strip('/').split('/'))
+        if resource:
+            resource.process(request)
+        else:
+            raise WSException("Could not find resource for %s." % request)
